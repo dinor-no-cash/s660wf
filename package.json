@@ -1,0 +1,24 @@
+{
+    "author": "dorin@neophilia.info",
+    "dependencies": {},
+    "keywords": [],
+    "name": "s660wf",
+    "pebble": {
+        "displayName": "s660wf",
+        "enableMultiJS": true,
+        "messageKeys": [],
+        "projectType": "native",
+        "resources": {
+            "media": []
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "basalt"
+        ],
+        "uuid": "1ac297a1-a435-453c-8bb8-8c3d56adff11",
+        "watchapp": {
+            "watchface": true
+        }
+    },
+    "version": "1.0.0"
+}
