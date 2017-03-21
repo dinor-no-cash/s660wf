@@ -9,13 +9,23 @@
         "messageKeys": [],
         "projectType": "native",
         "resources": {
-            "media": []
+            "media": [
+                {
+                    "file": "images/base",
+                    "name": "base",
+                    "targetPlatforms": [
+                        "basalt",
+                        "chalk"
+                    ],
+                    "type": "png"
+                }
+            ]
         },
         "sdkVersion": "3",
         "targetPlatforms": [
             "basalt"
         ],
-        "uuid": "1ac297a1-a435-453c-8bb8-8c3d56adff11",
+        "uuid": "99498416-7f42-426d-8881-6fb7be331211",
         "watchapp": {
             "watchface": true
         }
