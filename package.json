@@ -4,9 +4,16 @@
     "keywords": [],
     "name": "s660wf",
     "pebble": {
+        "capabilities": [
+            "location",
+            "health"
+        ],
         "displayName": "s660wf",
-        "enableMultiJS": true,
-        "messageKeys": [],
+        "enableMultiJS": false,
+        "messageKeys": {
+            "HUMIDITY": 1,
+            "TEMPERATURE": 0
+        },
         "projectType": "native",
         "resources": {
             "media": [
@@ -23,7 +30,8 @@
         },
         "sdkVersion": "3",
         "targetPlatforms": [
-            "basalt"
+            "basalt",
+            "chalk"
         ],
         "uuid": "99498416-7f42-426d-8881-6fb7be331211",
         "watchapp": {
