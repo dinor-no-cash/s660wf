@@ -9,6 +9,7 @@ static TextLayer *s_time_layer;
 static TextLayer *s_date_layer;
 static TextLayer *s_weekday_layer;
 static Layer *s_bat_layer;
+static Layer *s_conn_layer;
 static TextLayer *s_step_layer;
 static TextLayer *s_cals_layer;
 static TextLayer *s_temp_layer;
@@ -38,6 +39,8 @@ static GPath *s_bat20_path_ptr = NULL;
 static const GPathInfo PATH_INFO_20 = {.num_points = 4, .points = (GPoint[]){{39,40},{44,40},{44,43},{40,43}}};
 static GPath *s_bat10_path_ptr = NULL;
 static const GPathInfo PATH_INFO_10 = {.num_points = 4, .points = (GPoint[]){{41,45},{44,45},{44,48},{41,48}}};
+static GPath *s_conn_path_ptr = NULL;
+static const GPathInfo PATH_INFO_CONN = {.num_points = 6, .points = (GPoint[]){{0,3},{7,11},{4,14},{4,0},{7,3},{0,11}}};
 
 static void second_update(Layer *layer, GContext *ctx){
 	time_t temp = time(NULL);
@@ -70,14 +73,14 @@ static void battery_update(Layer *layer, GContext *ctx){
 }
 
 static void inbox_recieved_callback(DictionaryIterator *iterator, void *context){
-	static char temp_buffer[] = "---°C";
-	static char hum_buffer[] = "---%";
+	static char temp_buffer[] = "--- °C";
+	static char hum_buffer[] = "--- %";
 	Tuple *temp_tuple = dict_find(iterator, MESSAGE_KEY_TEMPERATURE);
 	Tuple *hum_tuple = dict_find(iterator, MESSAGE_KEY_HUMIDITY);
 	
 	if(temp_tuple && hum_tuple){
-		snprintf(temp_buffer, sizeof("---°C"), "%d°C", (int)temp_tuple->value->int32);
-		snprintf(hum_buffer, sizeof("---%"), "%d%%", (int)hum_tuple->value->int32);
+		snprintf(temp_buffer, sizeof("--- °C"), "%d °C", (int)temp_tuple->value->int32);
+		snprintf(hum_buffer, sizeof("--- %"), "%d %%", (int)hum_tuple->value->int32);
 		text_layer_set_text(s_temp_layer, temp_buffer);
 		text_layer_set_text(s_hum_layer, hum_buffer);
 	}
@@ -91,6 +94,12 @@ static void weather_update(){
 	app_message_outbox_begin(&iterator);
 	dict_write_uint8(iterator, 0, 0);
 	app_message_outbox_send();
+}
+
+static void conn_update(Layer *layer, GContext *ctx){
+	graphics_context_set_stroke_color(ctx, GColorWhite);
+	graphics_context_set_stroke_width(ctx, 1);
+	gpath_draw_outline_open(ctx, s_conn_path_ptr);
 }
 
 static void update_by_day(struct tm *tick_time){
@@ -129,7 +138,7 @@ static void update_by_minute(struct tm *tick_time){
 					 (int)health_service_sum_today(HealthMetricActiveKCalories)+(int)health_service_sum_today(HealthMetricRestingKCalories));
 	text_layer_set_text(s_cals_layer, cals_buffer);
 	
-	if(tick_time->tm_min % 15 == 0){
+	if(tick_time->tm_min % 30 == 0){
 		weather_update();
 	}
 	if(tick_time->tm_hour == 0){
@@ -139,6 +148,13 @@ static void update_by_minute(struct tm *tick_time){
 
 static void battery_handler(BatteryChargeState charge_stat){
 	layer_mark_dirty(s_bat_layer);
+}
+
+static void conn_handler(bool connected){
+	layer_set_hidden(s_conn_layer, !connected);
+	if(!connected){
+		vibes_long_pulse();
+	}
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed){
@@ -196,6 +212,12 @@ static void main_window_load(Window *window){
 	s_bat20_path_ptr = gpath_create(&PATH_INFO_20);
 	s_bat10_path_ptr = gpath_create(&PATH_INFO_10);
 	
+	s_conn_layer = layer_create(GRect(132,5,8,20));
+	layer_set_update_proc(s_conn_layer, conn_update);
+	layer_add_child(window_get_root_layer(window), s_conn_layer);
+	s_conn_path_ptr = gpath_create(&PATH_INFO_CONN);
+	layer_mark_dirty(s_conn_layer);
+	
 	s_step_layer = text_layer_create(GRect(80,146,60,12));
 	text_layer_set_background_color(s_step_layer, GColorClear);
 	text_layer_set_text_color(s_step_layer, GColorWhite);
@@ -215,7 +237,7 @@ static void main_window_load(Window *window){
 	s_temp_layer = text_layer_create(GRect(4,146,20,12));
 	text_layer_set_background_color(s_temp_layer, GColorClear);
 	text_layer_set_text_color(s_temp_layer, GColorWhite);
-	text_layer_set_text(s_temp_layer, "---°C");
+	text_layer_set_text(s_temp_layer, "--- °C");
 	text_layer_set_font(s_temp_layer, fonts_get_system_font(FONT_KEY_GOTHIC_09));
 	text_layer_set_text_alignment(s_temp_layer, GTextAlignmentRight);
 	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_temp_layer));
@@ -223,7 +245,7 @@ static void main_window_load(Window *window){
 	s_hum_layer = text_layer_create(GRect(4,156,20,12));
 	text_layer_set_background_color(s_hum_layer, GColorClear);
 	text_layer_set_text_color(s_hum_layer, GColorWhite);
-	text_layer_set_text(s_hum_layer, "---%");
+	text_layer_set_text(s_hum_layer, "--- %");
 	text_layer_set_font(s_hum_layer, fonts_get_system_font(FONT_KEY_GOTHIC_09));
 	text_layer_set_text_alignment(s_hum_layer, GTextAlignmentRight);
 	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_hum_layer));
@@ -239,15 +261,18 @@ static void main_window_load(Window *window){
 	
 	battery_state_service_subscribe(battery_handler);
 	tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
+	connection_service_subscribe((ConnectionHandlers){.pebble_app_connection_handler = conn_handler});
 	
+	weather_update();
+	conn_handler(connection_service_peek_pebble_app_connection());
 	time_t temp = time(NULL);
 	struct tm *tick_time = localtime(&temp);
-	weather_update();
 	update_by_day(tick_time);
 	update_by_minute(tick_time);
 }
 
 static void main_window_unload(Window *window){
+	connection_service_unsubscribe();
 	tick_timer_service_unsubscribe();
 	battery_state_service_unsubscribe();
 	app_message_deregister_callbacks();
@@ -255,6 +280,8 @@ static void main_window_unload(Window *window){
 	text_layer_destroy(s_temp_layer);
 	text_layer_destroy(s_cals_layer);
 	text_layer_destroy(s_step_layer);
+	gpath_destroy(s_conn_path_ptr);
+	layer_destroy(s_conn_layer);
 	gpath_destroy(s_bat10_path_ptr);
 	gpath_destroy(s_bat20_path_ptr);
 	gpath_destroy(s_bat30_path_ptr);
