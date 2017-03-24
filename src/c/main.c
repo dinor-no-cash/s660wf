@@ -159,8 +159,19 @@ static void conn_handler(bool connected){
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed){
 	layer_mark_dirty(s_seconds_layer);
-	if(tick_time->tm_sec == 0){
+	if(units_changed == MINUTE_UNIT || tick_time->tm_sec == 0){
 		update_by_minute(tick_time);
+	}
+	if(tick_time->tm_hour >= 6 && tick_time->tm_hour < 22){
+		if (units_changed == MINUTE_UNIT){
+			tick_timer_service_unsubscribe();
+			tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
+		}
+	}else{
+		if (units_changed == SECOND_UNIT){
+			tick_timer_service_unsubscribe();
+			tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+		}
 	}
 }
 
