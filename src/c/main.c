@@ -16,6 +16,7 @@ static TextLayer *s_temp_layer;
 static TextLayer *s_hum_layer;
 static BitmapLayer *s_background_layer;
 static GBitmap *s_background_bitmap;
+static bool power_save = false;
 
 static GPath *s_bat_charge_path_ptr = NULL;
 static const GPathInfo PATH_INFO_CHARGE = {.num_points = 6, .points = (GPoint[]){{40,2},{35,13},{39,13},{38,23},{43,12},{39,12}}};
@@ -79,8 +80,8 @@ static void inbox_recieved_callback(DictionaryIterator *iterator, void *context)
 	Tuple *hum_tuple = dict_find(iterator, MESSAGE_KEY_HUMIDITY);
 	
 	if(temp_tuple && hum_tuple){
-		snprintf(temp_buffer, sizeof("--- °C"), "%d °C", (int)temp_tuple->value->int32);
-		snprintf(hum_buffer, sizeof("--- %"), "%d %%", (int)hum_tuple->value->int32);
+		snprintf(temp_buffer, sizeof(temp_buffer), "%d °C", (int)temp_tuple->value->int32);
+		snprintf(hum_buffer, sizeof(hum_buffer), "%d %%", (int)hum_tuple->value->int32);
 		text_layer_set_text(s_temp_layer, temp_buffer);
 		text_layer_set_text(s_hum_layer, hum_buffer);
 	}
@@ -104,18 +105,18 @@ static void conn_update(Layer *layer, GContext *ctx){
 
 static void update_by_day(struct tm *tick_time){
 	static char date_buffer[] = "01/01";
-	strftime(date_buffer, sizeof("01/01"), "%m/%d", tick_time);
+	strftime(date_buffer, sizeof(date_buffer), "%m/%d", tick_time);
 	text_layer_set_text(s_date_layer, date_buffer);
 	
 	static char weekday_buffer[] = "sun";
 	switch(tick_time->tm_wday){
-		case 0: snprintf(weekday_buffer, sizeof("sun"), "%s","Sun"); break;
-		case 1: snprintf(weekday_buffer, sizeof("mon"), "%s","Mon"); break;
-		case 2: snprintf(weekday_buffer, sizeof("tue"), "%s","Tue"); break;
-		case 3: snprintf(weekday_buffer, sizeof("wed"), "%s","Wed"); break;
-		case 4: snprintf(weekday_buffer, sizeof("thu"), "%s","Thu"); break;
-		case 5: snprintf(weekday_buffer, sizeof("fri"), "%s","Fri"); break;
-		case 6: snprintf(weekday_buffer, sizeof("sat"), "%s","Sat"); break;
+		case 0: snprintf(weekday_buffer, sizeof(weekday_buffer), "%s","Sun"); break;
+		case 1: snprintf(weekday_buffer, sizeof(weekday_buffer), "%s","Mon"); break;
+		case 2: snprintf(weekday_buffer, sizeof(weekday_buffer), "%s","Tue"); break;
+		case 3: snprintf(weekday_buffer, sizeof(weekday_buffer), "%s","Wed"); break;
+		case 4: snprintf(weekday_buffer, sizeof(weekday_buffer), "%s","Thu"); break;
+		case 5: snprintf(weekday_buffer, sizeof(weekday_buffer), "%s","Fri"); break;
+		case 6: snprintf(weekday_buffer, sizeof(weekday_buffer), "%s","Sat"); break;
 	}
 	text_layer_set_text(s_weekday_layer, weekday_buffer);
 }
@@ -123,18 +124,18 @@ static void update_by_day(struct tm *tick_time){
 static void update_by_minute(struct tm *tick_time){
 	static char time_buffer[] = "00:00";
 	if(clock_is_24h_style() == true){
-		strftime(time_buffer, sizeof("00:00"), "%H:%M", tick_time);
+		strftime(time_buffer, sizeof(time_buffer), "%H:%M", tick_time);
 	}else{
-		strftime(time_buffer, sizeof("00:00"), "%I:%M", tick_time);
+		strftime(time_buffer, sizeof(time_buffer), "%I:%M", tick_time);
 	}
 	text_layer_set_text(s_time_layer, time_buffer);
 	
 	static char steps_buffer[] = "99999 steps";
-	snprintf(steps_buffer, sizeof("99999 steps"), "%d steps", (int)health_service_sum_today(HealthMetricStepCount));
+	snprintf(steps_buffer, sizeof(steps_buffer), "%d steps", (int)health_service_sum_today(HealthMetricStepCount));
 	text_layer_set_text(s_step_layer, steps_buffer);
 	
 	static char cals_buffer[] = "99999 kcals";
-	snprintf(cals_buffer, sizeof("99999 kcals"), "%d kcals",
+	snprintf(cals_buffer, sizeof(cals_buffer), "%d kcals",
 					 (int)health_service_sum_today(HealthMetricActiveKCalories)+(int)health_service_sum_today(HealthMetricRestingKCalories));
 	text_layer_set_text(s_cals_layer, cals_buffer);
 	
@@ -163,14 +164,14 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed){
 		update_by_minute(tick_time);
 	}
 	if(tick_time->tm_hour >= 6 && tick_time->tm_hour < 22){
-		if (units_changed == MINUTE_UNIT){
-			tick_timer_service_unsubscribe();
+		if(power_save){
 			tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
+			power_save = false;
 		}
 	}else{
-		if (units_changed == SECOND_UNIT){
-			tick_timer_service_unsubscribe();
+		if(!power_save){
 			tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+			power_save = true;
 		}
 	}
 }
